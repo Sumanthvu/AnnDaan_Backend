@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import styled, { keyframes } from 'styled-components';
 
-// Styled Components
+// Styled Components (same as provided before)
 const PageContainer = styled.div`
   display: flex;
   justify-content: center;
@@ -118,6 +118,7 @@ const Message = styled.p`
   margin-top: 15px;
   font-size: 14px;
   color: ${props => (props.type === 'error' ? '#dc3545' : '#28a745')};
+  white-space: pre-wrap; // To show multi-line messages if backend sends them
 `;
 
 const OtpInfo = styled.p`
@@ -137,34 +138,43 @@ const RestaurantRegistration = () => {
   const [message, setMessage] = useState({ text: '', type: '' });
   const navigate = useNavigate();
 
-  const API_URL = 'http://localhost:8080/api/otp'; // Your backend URL
+  const API_BASE_URL = 'http://localhost:8080/api/otp'; // Your backend URL
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    if (message.text) setMessage({ text: '', type: '' }); // Clear message on input change
   };
 
   const handleOtpChange = (e) => {
     setOtp(e.target.value);
+    if (message.text) setMessage({ text: '', type: '' }); // Clear message on input change
   };
 
   const handleSendOtp = async (e) => {
     e.preventDefault();
-    if (!formData.name || !formData.email) {
-      setMessage({ text: 'Please fill in all fields.', type: 'error' });
+    if (!formData.name.trim() || !formData.email.trim()) {
+      setMessage({ text: 'Restaurant name and email are required.', type: 'error' });
       return;
     }
+    // Basic email format validation (optional, backend should also validate)
+    if (!/\S+@\S+\.\S+/.test(formData.email)) {
+        setMessage({ text: 'Please enter a valid email address.', type: 'error' });
+        return;
+    }
+
     setIsLoading(true);
     setMessage({ text: '', type: '' });
     try {
-      const response = await axios.post(`${API_URL}/send`, {
-        name: formData.name,
-        email: formData.email,
+      const response = await axios.post(`${API_BASE_URL}/send`, {
+        name: formData.name.trim(),
+        email: formData.email.trim(),
       });
       setMessage({ text: response.data.message, type: 'success' });
       setShowOtpInput(true);
     } catch (error) {
+      console.error("Send OTP error:", error.response || error.message);
       setMessage({
-        text: error.response?.data?.message || 'Failed to send OTP. Please try again.',
+        text: error.response?.data?.message || 'Failed to send OTP. Please check your connection and try again.',
         type: 'error',
       });
     }
@@ -173,27 +183,27 @@ const RestaurantRegistration = () => {
 
   const handleVerifyOtp = async (e) => {
     e.preventDefault();
-    if (!otp) {
-      setMessage({ text: 'Please enter the OTP.', type: 'error' });
+    if (!otp.trim() || otp.trim().length !== 6) { // Assuming 6-digit OTP
+      setMessage({ text: 'Please enter a valid 6-digit OTP.', type: 'error' });
       return;
     }
     setIsLoading(true);
     setMessage({ text: '', type: '' });
     try {
-      const response = await axios.post(`${API_URL}/verify`, {
-        email: formData.email,
-        otp: otp,
+      const response = await axios.post(`${API_BASE_URL}/verify`, {
+        email: formData.email.trim(), // Send the same email used for sending OTP
+        otp: otp.trim(),
       });
       setMessage({ text: response.data.message, type: 'success' });
       
-      // Store minimal user info for the dashboard
-      localStorage.setItem('user', JSON.stringify({ email: formData.email, name: formData.name, role: 'RESTAURANT' }));
-      localStorage.setItem('token', 'otp-verified-restaurant'); // Simple token for frontend check
+      localStorage.setItem('user', JSON.stringify({ email: formData.email.trim(), name: formData.name.trim(), role: 'RESTAURANT' }));
+      localStorage.setItem('token', 'otp-verified-restaurant'); 
 
       setTimeout(() => {
-        navigate('/restaurant-dashboard'); // Navigate to dashboard
-      }, 1500); // Delay for user to see success message
+        navigate('/restaurant-dashboard');
+      }, 1500);
     } catch (error) {
+      console.error("Verify OTP error:", error.response || error.message);
       setMessage({
         text: error.response?.data?.message || 'OTP verification failed. Please try again.',
         type: 'error',
@@ -255,6 +265,8 @@ const RestaurantRegistration = () => {
                   onChange={handleOtpChange}
                   placeholder="Enter 6-digit OTP"
                   maxLength="6"
+                  pattern="\d{6}" // Ensures 6 digits
+                  title="OTP must be 6 digits"
                   required
                 />
               </InputGroup>
@@ -271,7 +283,7 @@ const RestaurantRegistration = () => {
                   e.preventDefault(); 
                   setShowOtpInput(false); 
                   setMessage({text:'', type:''}); 
-                  setOtp(''); // Clear previous OTP input
+                  setOtp('');
                 }} 
                 style={{ color: '#007bff', textDecoration: 'none' }}
               >

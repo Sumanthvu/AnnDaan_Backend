@@ -1,20 +1,21 @@
-import React, { useState, useEffect } from 'react'; // Added React import
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom'; // Added Navigate, useNavigate
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, Link } from 'react-router-dom'; // Added Link
 import './App.css';
 import RestaurantRegistration from './components/RestaurantRegistration';
-import RestaurantDashboard from './components/RestaurantDashboard'; // Import Dashboard
+import RestaurantDashboard from './components/RestaurantDashboard'; // Make sure this path is correct
 
-// ProtectedRoute Component
+// ProtectedRoute Component (Essential for guarding dashboard access)
 const ProtectedRoute = ({ children }) => {
   const token = localStorage.getItem('token');
-  // This is a very basic check for the OTP flow.
-  // For a real app, you'd validate the token's authenticity and expiration.
-  if (token === 'otp-verified-restaurant') {
+  const user = JSON.parse(localStorage.getItem('user'));
+
+  // Check for a specific token and that user role is RESTAURANT
+  if (token === 'otp-verified-restaurant' && user && user.role === 'RESTAURANT') {
     return children;
   }
-  // If no valid token, redirect to restaurant registration or a general login page.
   return <Navigate to="/restaurant-registration" replace />;
 };
+
 
 function App() {
   return (
@@ -30,12 +31,15 @@ function App() {
             </ProtectedRoute>
           } 
         />
-        {/* Add a fallback route if needed, e.g., for 404 */}
         <Route path="*" element={<Navigate to="/" replace />} /> 
       </Routes>
     </Router>
   );
 }
+
+// MainContent and its sub-components (Header, SliderSection, etc.)
+// are assumed to be the same as you provided.
+// Key change: In VolunteerSection, use <Link> or navigate for SPA behavior.
 
 function MainContent() {
   const [slideIndex, setSlideIndex] = useState(1);
@@ -43,19 +47,19 @@ function MainContent() {
   const showSlides = (n) => {
     let i;
     const slides = document.getElementsByClassName("mySlides");
-    if (!slides || slides.length === 0) return; // Added check for slides existence
+    if (!slides || slides.length === 0) return;
     
     let newIndex = n;
     if (n > slides.length) newIndex = 1;
     if (n < 1) newIndex = slides.length;
     
     for (i = 0; i < slides.length; i++) {
-      if (slides[i] && slides[i].style) { // Check if slide and style exist
+      if (slides[i] && slides[i].style) {
          slides[i].style.display = "none";
       }
     }
     
-    if (slides[newIndex - 1] && slides[newIndex - 1].style) { // Check if slide and style exist
+    if (slides[newIndex - 1] && slides[newIndex - 1].style) {
         slides[newIndex - 1].style.display = "block";
     }
     setSlideIndex(newIndex);
@@ -66,17 +70,18 @@ function MainContent() {
   };
 
   useEffect(() => {
-    showSlides(slideIndex); // Initial call
-    
-    const interval = setInterval(() => {
-      // Check if slides are still present (e.g., component is mounted)
-      if (document.getElementsByClassName("mySlides").length > 0) {
-        plusSlides(1);
-      }
-    }, 5000);
-    
-    return () => clearInterval(interval); // Cleanup interval on unmount
-  }, [slideIndex]); // Rerun effect if slideIndex changes
+    // Only run slider logic if slides are present on the page
+    const slides = document.getElementsByClassName("mySlides");
+    if (slides && slides.length > 0) {
+        showSlides(slideIndex); // Initial call
+        const interval = setInterval(() => {
+            if (document.getElementsByClassName("mySlides").length > 0) { // Re-check inside interval
+                plusSlides(1);
+            }
+        }, 5000);
+        return () => clearInterval(interval);
+    }
+  }, [slideIndex]); 
 
   return (
     <div className="App">
@@ -86,7 +91,7 @@ function MainContent() {
       <MissionSection />
       <TestimonialsSection />
       <ContributeSection />
-      <VolunteerSection /> {/* Updated this component below */}
+      <VolunteerSection />
       <HowItWorksSection />
       <TeamSection />
       <Footer />
@@ -95,7 +100,6 @@ function MainContent() {
 }
 
 function Header() {
-  // Using Link for SPA navigation for internal links if desired, or keep as href for section jumps
   return (
     <header>
       <div className="header-content">
@@ -107,10 +111,10 @@ function Header() {
           <ul>
             <li><a href="#one">Home</a></li>
             <li><a href="#contribute">Contribute</a></li>
-            {/* <li><a href="#get-help">Get Help</a></li> Link from contribute section */}
-            <li><a href="#how-it-works">Services</a></li> {/* Assuming services links to how-it-works */}
-            <li><a href="#mission">About Us</a></li> {/* Assuming about-us links to mission */}
-            <li><a href="#contact" onClick={(e) => { e.preventDefault(); document.querySelector('footer .contact').scrollIntoView({ behavior: 'smooth' }); }}>Contact</a></li>
+            <li><a href="#get-help" onClick={(e)=>{e.preventDefault(); document.getElementById('get-help-anchor')?.scrollIntoView({ behavior: 'smooth' });}}>Get Help</a></li>
+            <li><a href="#how-it-works">Services</a></li>
+            <li><a href="#mission">About Us</a></li>
+            <li><a href="#contact" onClick={(e)=>{e.preventDefault(); document.getElementById('contact-anchor')?.scrollIntoView({ behavior: 'smooth' });}}>Contact</a></li>
           </ul>
         </nav>
       </div>
@@ -159,7 +163,7 @@ function SliderSection({ plusSlides }) {
 
 function WelcomeSection() {
   return (
-    <div id="one" style={{ marginTop: "25%" }}> {/* Consider reducing this margin if slider isn't that tall */}
+    <div id="one" style={{ marginTop: "25%" }}> {/* This large margin might be an issue if slider isn't tall enough */}
       <h1>Welcome to Ann Daan</h1>
     </div>
   );
@@ -221,11 +225,11 @@ function TestimonialsSection() {
 
 function ContributeSection() {
   const handleDonateClick = () => {
-    window.open('https://food-don.vercel.app/donate', '_blank'); // Open in new tab
+    window.open('https://food-don.vercel.app/donate', '_blank', 'noopener,noreferrer');
   };
 
   const handleGetHelpClick = () => {
-    window.open('https://food-don.vercel.app/get-food', '_blank'); // Open in new tab
+    window.open('https://food-don.vercel.app/get-food', '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -237,7 +241,7 @@ function ContributeSection() {
         </div>
         <a onClick={handleDonateClick} className="btn" style={{ cursor: 'pointer' }}>Donate</a>
       </div>
-      <div className="container1">
+      <div id="get-help-anchor" className="container1"> {/* Added anchor for "Get Help" link */}
         <h2 id="animationid">Get Help!</h2>
         <div className="content-box">
           <img src="/src/api/i2.jpeg" id="imgid1" alt="Get Food Help" />
@@ -249,25 +253,20 @@ function ContributeSection() {
 }
 
 function VolunteerSection() {
-  const navigate = useNavigate(); // Use useNavigate hook
-
-  const handleRestaurantClick = (e) => {
-    e.preventDefault();
-    navigate('/restaurant-registration'); // Use navigate for SPA navigation
-  };
-
+  // Using Link for internal navigation
   const handleVolunteerClick = () => {
-    window.open('https://food-don.vercel.app/volunteer', '_blank'); // Open in new tab
+    window.open('https://food-don.vercel.app/volunteer', '_blank', 'noopener,noreferrer');
   };
 
   return (
-    <section className="contribute"> {/* Consider renaming class if not purely for contribution */}
+    <section className="contribute">
       <div className="container2">
         <h2 id="animationid">Restaurants</h2>
         <div className="content-box">
           <img src="/src/api/i3.jpeg" id="imgid1" alt="Restaurant Registration" />
         </div>
-        <a onClick={handleRestaurantClick} className="btn" style={{ cursor: 'pointer' }}>Register</a>
+        {/* Use Link component for SPA navigation */}
+        <Link to="/restaurant-registration" className="btn" style={{ cursor: 'pointer', textDecoration: 'none' }}>Register</Link>
       </div>
       <div className="container2">
         <h2 id="animationid">Volunteer!</h2>
@@ -319,18 +318,19 @@ function TeamSection() {
     { name: "Shaik Meer G S", id: "LCS2024025", image: "/src/assets/img/8.jpeg" }
   ];
 
+
   return (
-    <section id="about-us" className="section about-us">
+    <section id="about-us" className="section about-us"> {/* This ID is also used for Mission, consider renaming if they are distinct */}
       <div className="container">
         <h2><strong>Our Team</strong></h2>
         <div className="team-grid">
           {teamMembers.map((member, index) => (
-            <div id="check" key={index}>
+            <div id="check" key={index}> {/* `id` should be unique, use `className` if styling multiple elements */}
               <div className="team-member">
                 <img src={member.image} alt={`Team Member ${index + 1}`} />
               </div>
-              <p id="pid" style={{ color: "black" }}><strong>{member.name}</strong></p>
-              <p id="pid">{member.id}</p>
+              <p className="pid-name" style={{ color: "black" }}><strong>{member.name}</strong></p> {/* Changed id to className */}
+              <p className="pid-id">{member.id}</p> {/* Changed id to className */}
             </div>
           ))}
         </div>
@@ -341,7 +341,7 @@ function TeamSection() {
 
 function Footer() {
   return (
-    <footer id="contact"> {/* Added id for contact link */}
+    <footer id="contact-anchor"> {/* Added anchor for "Contact" link */}
       <div className="container footer-content">
         <div className="footer-main">
           <div className="footer-section branding">
@@ -356,12 +356,12 @@ function Footer() {
             <h3>Quick Links</h3>
             <ul>
               <li><a href="#one">Home</a></li>
-              <li><a href="#mission">About Us</a></li> {/* Corrected link to match section ID */}
-              <li><a href="#contribute">Food Donors</a></li> {/* Pointing to contribute */}
-              <li><a href="#contribute">Volunteers</a></li> {/* Pointing to contribute */}
-              {/* <li><a href="#charities">Charities</a></li> No specific section for charities */}
-              <li><a href="#about-us">Our Team</a></li> {/* Pointing to team section */}
-              {/* <li><a href="#faqs">FAQs</a></li> No specific FAQ section */}
+              <li><a href="#mission">About Us</a></li>
+              <li><a href="#contribute">Food Donors</a></li>
+              <li><a href="#contribute">Volunteers</a></li>
+              {/* Removed #charities as no section */}
+              <li><a href="#about-us">Our Team</a></li>
+              {/* Removed #faqs as no section */}
             </ul>
           </div>
 
@@ -370,7 +370,7 @@ function Footer() {
             <address>
               <p><i className="fa-solid fa-location-dot"></i> IIITL, Chakganjaraia,<br />C.G. City Lucknow, 226002</p>
               <p><i className="fa-solid fa-phone"></i> +91123467899</p>
-              <p><i className="fa-solid fa-envelope"></i> <a href="mailto:annadaan@gmail.com" style={{color: "inherit", textDecoration: "none"}}>annadaan@gmail.com</a></p> {/* Added icon and style */}
+              <p><i className="fa-solid fa-envelope"></i> <a href="mailto:annadaan@gmail.com" style={{color: "inherit", textDecoration:"none"}}>annadaan@gmail.com</a></p>
             </address>
           </div>
 
@@ -381,11 +381,7 @@ function Footer() {
               <button type="submit" className="btn-subscribe">Subscribe</button>
             </form>
             <div className="social-media">
-              {/* Social media icons could go here e.g.
-              <a href="#" aria-label="Facebook"><i className="fab fa-facebook-f"></i></a>
-              <a href="#" aria-label="Twitter"><i className="fab fa-twitter"></i></a>
-              <a href="#" aria-label="Instagram"><i className="fab fa-instagram"></i></a> 
-              */}
+              {/* Social media icons could go here */}
             </div>
           </div>
         </div>
@@ -393,16 +389,16 @@ function Footer() {
 
       <div className="donate-banner">
         <p>Help us make a difference today</p>
-        <a href="#contribute" className="btn-donate">DONATE NOW</a> {/* Changed to #contribute section */}
+        <a href="#contribute" className="btn-donate">DONATE NOW</a>
       </div>
 
       <div className="footer-bottom">
         <div className="container">
           <p>© 2024 Ann Daan. All rights reserved.</p>
           <ul className="footer-policies">
-             {/* You would create actual pages for these or link to sections if they exist */}
-            <li><a href="#privacy-policy-section">Privacy Policy</a></li>
-            <li><a href="#terms-of-service-section">Terms of Service</a></li>
+             {/* Placeholder links - create actual pages or sections */}
+            <li><a href="#privacy-policy">Privacy Policy</a></li>
+            <li><a href="#terms-of-service">Terms of Service</a></li>
           </ul>
         </div>
       </div>

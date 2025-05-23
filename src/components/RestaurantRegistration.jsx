@@ -1,169 +1,289 @@
 import React, { useState } from 'react';
-import '../styles/styles.css';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import styled, { keyframes } from 'styled-components';
 
-function RestaurantRegistration() {
+// Styled Components
+const PageContainer = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  font-family: 'Arial', sans-serif;
+  padding: 20px;
+`;
+
+const RegistrationCard = styled.div`
+  background: #ffffff;
+  padding: 40px;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 450px;
+  text-align: center;
+`;
+
+const Title = styled.h1`
+  color: #333;
+  margin-bottom: 10px;
+  font-size: 28px;
+  font-weight: 600;
+`;
+
+const Subtitle = styled.p`
+  color: #666;
+  margin-bottom: 30px;
+  font-size: 16px;
+`;
+
+const Form = styled.form`
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+`;
+
+const InputGroup = styled.div`
+  text-align: left;
+`;
+
+const Label = styled.label`
+  display: block;
+  margin-bottom: 8px;
+  color: #555;
+  font-size: 14px;
+  font-weight: 500;
+`;
+
+const Input = styled.input`
+  width: 100%;
+  padding: 12px 15px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 16px;
+  box-sizing: border-box;
+  transition: border-color 0.3s;
+
+  &:focus {
+    border-color: #007bff;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.2);
+  }
+`;
+
+const spin = keyframes`
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+`;
+
+const Button = styled.button`
+  padding: 14px 20px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.3s, transform 0.1s;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+
+  &:hover {
+    background-color: #0056b3;
+  }
+  
+  &:active {
+    transform: translateY(1px);
+  }
+
+  &:disabled {
+    background-color: #a0cfff;
+    cursor: not-allowed;
+  }
+`;
+
+const Loader = styled.div`
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #007bff;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  animation: ${spin} 1s linear infinite;
+`;
+
+const Message = styled.p`
+  margin-top: 15px;
+  font-size: 14px;
+  color: ${props => (props.type === 'error' ? '#dc3545' : '#28a745')};
+`;
+
+const OtpInfo = styled.p`
+  margin-top: 20px;
+  font-size: 14px;
+  color: #555;
+`;
+
+const RestaurantRegistration = () => {
   const [formData, setFormData] = useState({
-    restaurantName: '',
-    address: '',
+    name: '',
     email: '',
-    phoneNumber: '',
-    ownerName: '',
-    workingHoursFrom: '',
-    workingHoursTo: '',
-    password: '',
-    confirmPassword: ''
   });
+  const [otp, setOtp] = useState('');
+  const [showOtpInput, setShowOtpInput] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [message, setMessage] = useState({ text: '', type: '' });
+  const navigate = useNavigate();
+
+  const API_URL = 'http://localhost:8080/api/otp'; // Your backend URL
 
   const handleChange = (e) => {
-    const { id, value } = e.target;
-    setFormData(prevState => ({
-      ...prevState,
-      [id]: value
-    }));
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
+  const handleOtpChange = (e) => {
+    setOtp(e.target.value);
+  };
+
+  const handleSendOtp = async (e) => {
     e.preventDefault();
-    // Form submission logic would go here
-    console.log('Form submitted:', formData);
-    alert('Registration successful!');
+    if (!formData.name || !formData.email) {
+      setMessage({ text: 'Please fill in all fields.', type: 'error' });
+      return;
+    }
+    setIsLoading(true);
+    setMessage({ text: '', type: '' });
+    try {
+      const response = await axios.post(`${API_URL}/send`, {
+        name: formData.name,
+        email: formData.email,
+      });
+      setMessage({ text: response.data.message, type: 'success' });
+      setShowOtpInput(true);
+    } catch (error) {
+      setMessage({
+        text: error.response?.data?.message || 'Failed to send OTP. Please try again.',
+        type: 'error',
+      });
+    }
+    setIsLoading(false);
+  };
+
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    if (!otp) {
+      setMessage({ text: 'Please enter the OTP.', type: 'error' });
+      return;
+    }
+    setIsLoading(true);
+    setMessage({ text: '', type: '' });
+    try {
+      const response = await axios.post(`${API_URL}/verify`, {
+        email: formData.email,
+        otp: otp,
+      });
+      setMessage({ text: response.data.message, type: 'success' });
+      
+      // Store minimal user info for the dashboard
+      localStorage.setItem('user', JSON.stringify({ email: formData.email, name: formData.name, role: 'RESTAURANT' }));
+      localStorage.setItem('token', 'otp-verified-restaurant'); // Simple token for frontend check
+
+      setTimeout(() => {
+        navigate('/restaurant-dashboard'); // Navigate to dashboard
+      }, 1500); // Delay for user to see success message
+    } catch (error) {
+      setMessage({
+        text: error.response?.data?.message || 'OTP verification failed. Please try again.',
+        type: 'error',
+      });
+    }
+    setIsLoading(false);
   };
 
   return (
-    <div className="app-container">
-      <header>
-        <div className="container">
-          <h1>Save and Serve Leftover Food</h1>
-          <p>Your efforts can bring hope to many. Let's make a difference together!</p>
-        </div>
-      </header>
-
-      <main>
-        <div className="container">
-          <section className="form-section">
-            <div className="form-wrapper">
-              <h2>Registration Form</h2>
-              <form id="registrationForm" onSubmit={handleSubmit}>
-                <div className="form-group">
-                  <label htmlFor="restaurantName">Restaurant Name:</label>
-                  <input 
-                    type="text" 
-                    placeholder="Hotel Name" 
-                    id="restaurantName"
-                    value={formData.restaurantName}
-                    onChange={handleChange}
-                    required 
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="address">Address:</label>
-                  <input 
-                    type="text" 
-                    placeholder="Address" 
-                    id="address"
-                    value={formData.address}
-                    onChange={handleChange}
-                    required 
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="email">Email:</label>
-                  <input 
-                    type="email" 
-                    placeholder="Enter Email" 
-                    id="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="phoneNumber">Mobile Number:</label>
-                  <input 
-                    type="tel" 
-                    id="phoneNumber" 
-                    placeholder="Enter Mobile Number"
-                    value={formData.phoneNumber}
-                    onChange={handleChange}
-                    required 
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="ownerName">Owner Name:</label>
-                  <input 
-                    type="text" 
-                    id="ownerName" 
-                    placeholder="Owner's name"
-                    value={formData.ownerName}
-                    onChange={handleChange}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="workingHoursFrom">Working Hours - From:</label>
-                  <input 
-                    type="time" 
-                    id="workingHoursFrom"
-                    value={formData.workingHoursFrom}
-                    onChange={handleChange}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="workingHoursTo">To:</label>
-                  <input 
-                    type="time" 
-                    id="workingHoursTo"
-                    value={formData.workingHoursTo}
-                    onChange={handleChange}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="password">Create a password:</label>
-                  <input 
-                    type="password" 
-                    id="password"
-                    value={formData.password}
-                    onChange={handleChange}
-                    required 
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="confirmPassword">Confirm password:</label>
-                  <input 
-                    type="password" 
-                    id="confirmPassword"
-                    value={formData.confirmPassword}
-                    onChange={handleChange}
-                    required 
-                  />
-                </div>
-
-                <button type="submit" className="submit-btn">Register Now</button>
-              </form>
-            </div>
-            
-            <div className="slogans">
-              <h3>"Reviving Leftovers, Reviving Lives!"</h3>
-              <img src="projectimg1.jpg" alt="End Food Waste!" style={{ maxWidth: '100%', height: 'auto' }} />
-              <h3>"Together, we can make a change!"</h3>
-            </div>
-          </section>
-        </div>
-      </main>
-
-      <footer>
-        <div className="container">
-          <p>&copy; 2024 Save and Serve Leftover Food | All rights reserved</p>
-        </div>
-      </footer>
-    </div>
+    <PageContainer>
+      <RegistrationCard>
+        {!showOtpInput ? (
+          <>
+            <Title>Restaurant Registration</Title>
+            <Subtitle>Let's get your restaurant on board!</Subtitle>
+            <Form onSubmit={handleSendOtp}>
+              <InputGroup>
+                <Label htmlFor="name">Restaurant Name</Label>
+                <Input
+                  type="text"
+                  name="name"
+                  id="name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  placeholder="Enter your restaurant's name"
+                  required
+                />
+              </InputGroup>
+              <InputGroup>
+                <Label htmlFor="email">Email Address</Label>
+                <Input
+                  type="email"
+                  name="email"
+                  id="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  placeholder="Enter your email address"
+                  required
+                />
+              </InputGroup>
+              <Button type="submit" disabled={isLoading}>
+                {isLoading && <Loader />}
+                Send OTP
+              </Button>
+            </Form>
+          </>
+        ) : (
+          <>
+            <Title>Verify Your Email</Title>
+            <Subtitle>An OTP has been sent to {formData.email}</Subtitle>
+            <Form onSubmit={handleVerifyOtp}>
+              <InputGroup>
+                <Label htmlFor="otp">Enter OTP</Label>
+                <Input
+                  type="text"
+                  name="otp"
+                  id="otp"
+                  value={otp}
+                  onChange={handleOtpChange}
+                  placeholder="Enter 6-digit OTP"
+                  maxLength="6"
+                  required
+                />
+              </InputGroup>
+              <Button type="submit" disabled={isLoading}>
+                {isLoading && <Loader />}
+                Verify OTP & Register
+              </Button>
+            </Form>
+            <OtpInfo>
+              Didn't receive OTP?{' '}
+              <a 
+                href="#" 
+                onClick={(e) => { 
+                  e.preventDefault(); 
+                  setShowOtpInput(false); 
+                  setMessage({text:'', type:''}); 
+                  setOtp(''); // Clear previous OTP input
+                }} 
+                style={{ color: '#007bff', textDecoration: 'none' }}
+              >
+                Resend OTP or change email
+              </a>
+            </OtpInfo>
+          </>
+        )}
+        {message.text && <Message type={message.type}>{message.text}</Message>}
+      </RegistrationCard>
+    </PageContainer>
   );
-}
+};
 
 export default RestaurantRegistration;

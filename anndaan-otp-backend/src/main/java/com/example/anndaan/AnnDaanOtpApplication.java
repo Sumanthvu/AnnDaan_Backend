@@ -8,4 +8,4 @@ public class AnnDaanOtpApplication {
     public static void main(String[] args) {
         SpringApplication.run(AnnDaanOtpApplication.class, args);
     }
-}
+} 
